@@ -1,0 +1,16 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Packer
+*.iso
+
+# Logs
+*.log
+
+# Ansible
+*.retry
+
+# OS
+.DS_Store

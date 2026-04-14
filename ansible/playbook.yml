@@ -1,0 +1,57 @@
+- name: Configuration post-deploiement des VM
+  hosts: vm
+  become: yes
+
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+
+    - name: Vérifier connexion
+      ping:
+
+    - name: Update cache APT
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade système
+      apt:
+        upgrade: dist
+
+    - name: Installer les packages nécessaires
+      apt:
+        name: "{{ package_list }}"
+        state: present
+
+    - name: Créer utilisateur devops
+      user:
+        name: devops
+        shell: /bin/bash
+        create_home: yes
+        groups: sudo
+        append: yes
+
+    - name: Autoriser sudo sans password pour devops
+      copy:
+        dest: /etc/sudoers.d/devops
+        content: "devops ALL=(ALL) NOPASSWD:ALL"
+        mode: "0440"
+
+    - name: Ajouter clé SSH pour devops
+      authorized_key:
+        user: devops
+        key: "{{ ssh_public_key }}"
+
+    - name: Désactiver login root via SSH
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify: Restart SSH
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: ssh   # ✅ comme tu veux (PAS sshd)
+        state: restarted

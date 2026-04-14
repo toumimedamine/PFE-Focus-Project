@@ -1,0 +1,9 @@
+package_list:
+  - curl
+  - wget
+  - git
+  - vim
+  - net-tools
+  - htop
+
+ssh_public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"

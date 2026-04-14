@@ -1,0 +1,7 @@
+package_list:
+  - curl
+  - wget
+  - git
+  - vim
+  - net-tools
+  - htop
