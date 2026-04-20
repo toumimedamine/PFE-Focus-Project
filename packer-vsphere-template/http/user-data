@@ -1,43 +1,37 @@
 #cloud-config
 autoinstall:
   version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  timezone: Africa/Tunis
 
   identity:
     hostname: ubuntu-template
     username: ubuntu
-    password: "$6$REPLACE_WITH_REAL_HASH"
+    password: "$6$RBR8hs48h/Iai1UO$Qekt95GohwaPRGYwRmLhGVjGZFspPUGG8geKLmUyQwJ.JmG7OGAftBhiiLnnzfVTck1S4tqbbbqCkDAYoTjjq."
 
   ssh:
     install-server: true
     allow-pw: true
-
-  locale: en_US
-  keyboard:
-    layout: us
-
-  storage:
-    layout:
-      name: direct
 
   network:
     version: 2
     ethernets:
       ens192:
         dhcp4: false
-        addresses:
-          - 10.1.10.4/24
-        routes:
-          - to: default
-            via: 10.1.10.254
+        addresses: [10.1.10.5/24]
+        gateway4: 10.1.10.254
         nameservers:
-          addresses:
-            - 10.1.10.2
-            - 8.8.8.8
+          addresses: [8.8.8.8]
 
-  packages:
-    - open-vm-tools
-    - openssh-server
+  storage:
+    layout:
+      name: direct
 
-  late-commands:
-    - curtin in-target --target=/target systemctl enable ssh
-    - curtin in-target --target=/target systemctl start ssh
+  user-data:
+    disable_root: false
+    runcmd:
+      - systemctl enable ssh
+      - systemctl start ssh
+
