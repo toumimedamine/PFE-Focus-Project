@@ -59,14 +59,15 @@ source "vsphere-iso" "ubuntu-desktop" {
   username            = var.vcenter_user
   password            = var.vcenter_password
   insecure_connection = true
-  datacenter          = var.datacenter
-  cluster             = var.cluster
-  datastore           = var.datastore
 
-  vm_name              = "ubuntu-2004-server-template"
+  datacenter = var.datacenter
+  cluster    = var.cluster
+  datastore  = var.datastore
+
+  vm_name              = "ubuntu-2204-desktop-template"
   guest_os_type        = "ubuntu64Guest"
-  CPUs                 = 4
-  RAM                  = 8192
+  CPUs                 = 8
+  RAM                  = 12288
   firmware             = "efi"
   disk_controller_type = ["pvscsi"]
   convert_to_template  = true
@@ -94,27 +95,33 @@ source "vsphere-iso" "ubuntu-desktop" {
   ssh_password           = var.ssh_password
   ssh_timeout            = "90m"
   ssh_handshake_attempts = 100000
+  ip_wait_timeout        = "60m"
+  ip_settle_timeout      = "30s"
 
-  boot_wait = "20s"
+  # Méthode stable dans ton environnement
+  boot_wait = "5s"
   boot_command = [
-    "c<wait2>",
-    "linux /casper/vmlinuz quiet autoinstall ds=nocloud<enter><wait5>",
-    "initrd /casper/initrd<enter><wait5>",
-    "boot<enter>"
+    "<wait170>",
+    "yes<enter>",
+    "<wait2>",
+    "yes<enter>"
   ]
 
   shutdown_command = "echo '${var.ssh_password}' | sudo -S shutdown -P now"
-  shutdown_timeout = "15m"
+  shutdown_timeout = "30m"
 }
 
 build {
   sources = ["source.vsphere-iso.ubuntu-desktop"]
 
   provisioner "shell" {
+    execute_command = "echo '${var.ssh_password}' | sudo -S -E bash '{{.Path}}'"
     inline = [
-      "sudo apt-get update -y",
-      "sudo apt-get install -y open-vm-tools openssh-server",
-      "sudo systemctl enable ssh"
+      "apt-get update -y",
+      "apt-get install -y open-vm-tools-desktop openssh-server",
+      "systemctl enable ssh",
+      "if [ -f /etc/ssh/sshd_config.d/60-cloudimg-settings.conf ]; then sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf; else sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config; fi",
+      "systemctl restart ssh || true"
     ]
   }
 }

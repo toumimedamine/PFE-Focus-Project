@@ -1,13 +1,14 @@
 #cloud-config
 autoinstall:
   version: 1
+  updates: security
   locale: en_US.UTF-8
   keyboard:
     layout: us
   timezone: Africa/Tunis
 
   identity:
-    hostname: ubuntu-template
+    hostname: ubuntu-desktop-template
     username: ubuntu
     password: "$6$RBR8hs48h/Iai1UO$Qekt95GohwaPRGYwRmLhGVjGZFspPUGG8geKLmUyQwJ.JmG7OGAftBhiiLnnzfVTck1S4tqbbbqCkDAYoTjjq."
 
@@ -26,12 +27,62 @@ autoinstall:
           addresses: [8.8.8.8]
 
   storage:
-    layout:
-      name: direct
+    config:
+      - type: disk
+        id: disk0
+        path: /dev/sda
+        ptable: gpt
+        wipe: superblock-recursive
+        preserve: false
+
+      - type: partition
+        id: efi-part
+        device: disk0
+        size: 512M
+        flag: boot
+        grub_device: true
+        preserve: false
+        wipe: superblock
+
+      - type: partition
+        id: root-part
+        device: disk0
+        size: -1
+        preserve: false
+        wipe: superblock
+
+      - type: format
+        id: efi-format
+        volume: efi-part
+        fstype: fat32
+        label: EFI
+
+      - type: format
+        id: root-format
+        volume: root-part
+        fstype: ext4
+        label: root
+
+      - type: mount
+        id: efi-mount
+        device: efi-format
+        path: /boot/efi
+
+      - type: mount
+        id: root-mount
+        device: root-format
+        path: /
+
+  # IMPORTANT: ne pas désactiver apt si tu utilises packages
+  packages:
+    - ubuntu-desktop-minimal
+    - open-vm-tools-desktop
+    - openssh-server
+
+  late-commands:
+    - curtin in-target --target=/target -- sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config || true
+    - curtin in-target --target=/target -- systemctl enable ssh || true
 
   user-data:
     disable_root: false
-    runcmd:
-      - systemctl enable ssh
-      - systemctl start ssh
 
