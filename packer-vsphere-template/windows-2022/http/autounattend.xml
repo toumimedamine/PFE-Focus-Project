@@ -97,9 +97,7 @@
 
 
   <!-- ═══════════════════════════════════════════════════════════
-       Pass 2 : specialize  –  minimal pour éviter les boucles setup
-       NOTE: La config IP statique via nom d'interface est fragile
-       (ex: "Ethernet" peut ne pas exister selon driver/locale).
+       Pass 2 : specialize  –  IP statique appliquée tôt (sans DHCP)
        ═══════════════════════════════════════════════════════════ -->
   <settings pass="specialize">
 
@@ -112,8 +110,44 @@
     </component>
 
 
-    <!-- Réseau laissé en DHCP pendant l'installation.
-         Appliquer une IP statique plus tard (provisioner script / GPO / cloud-init équivalent). -->
+    <component name="Microsoft-Windows-TCPIP"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>Ethernet0</Identifier>
+          <Ipv4Settings>
+            <DhcpEnabled>false</DhcpEnabled>
+          </Ipv4Settings>
+          <UnicastIpAddresses>
+            <IpAddress wcm:action="add" wcm:keyValue="1">10.1.10.6/24</IpAddress>
+          </UnicastIpAddresses>
+          <Routes>
+            <Route wcm:action="add">
+              <Identifier>1</Identifier>
+              <Prefix>0.0.0.0/0</Prefix>
+              <NextHopAddress>10.1.10.254</NextHopAddress>
+            </Route>
+          </Routes>
+        </Interface>
+      </Interfaces>
+    </component>
+
+
+    <component name="Microsoft-Windows-DNS-Client"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>Ethernet0</Identifier>
+          <DNSServerSearchOrder>
+            <IpAddress wcm:action="add" wcm:keyValue="1">8.8.8.8</IpAddress>
+          </DNSServerSearchOrder>
+        </Interface>
+      </Interfaces>
+    </component>
 
 
   </settings>
@@ -180,25 +214,17 @@
         </SynchronousCommand>
 
 
-        <!-- 3. Configurer IP statique (sans dépendre du nom "Ethernet") -->
+        <!-- 3. WinRM complet -->
         <SynchronousCommand wcm:action="add">
           <Order>3</Order>
-          <Description>Configure static IP</Description>
-          <CommandLine>powershell -ExecutionPolicy Bypass -Command "$deadline = (Get-Date).AddMinutes(3); do { $nic = Get-NetAdapter | Where-Object { $_.HardwareInterface -and $_.Status -eq 'Up' } | Sort-Object ifIndex | Select-Object -First 1; if (-not $nic) { Start-Sleep -Seconds 5 } } while (-not $nic -and (Get-Date) -lt $deadline); if (-not $nic) { $nic = Get-NetAdapter | Where-Object { $_.HardwareInterface } | Sort-Object ifIndex | Select-Object -First 1 }; if (-not $nic) { throw 'No network adapter found for static IP configuration.' }; Get-NetIPAddress -InterfaceIndex $nic.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue; New-NetIPAddress -InterfaceIndex $nic.ifIndex -IPAddress '10.1.10.6' -PrefixLength 24 -DefaultGateway '10.1.10.254' -ErrorAction Stop; Set-DnsClientServerAddress -InterfaceIndex $nic.ifIndex -ServerAddresses @('8.8.8.8')"</CommandLine>
-        </SynchronousCommand>
-
-
-        <!-- 4. WinRM complet -->
-        <SynchronousCommand wcm:action="add">
-          <Order>4</Order>
           <Description>Configure WinRM</Description>
           <CommandLine>powershell -ExecutionPolicy Bypass -Command "Set-Service -Name WinRM -StartupType Automatic; Start-Service -Name WinRM; Enable-PSRemoting -Force -SkipNetworkProfileCheck; Set-Item -Path WSMan:\localhost\Service\AllowUnencrypted -Value $true; Set-Item -Path WSMan:\localhost\Service\Auth\Basic -Value $true"</CommandLine>
         </SynchronousCommand>
 
 
-        <!-- 5. Activer RDP -->
+        <!-- 4. Activer RDP -->
         <SynchronousCommand wcm:action="add">
-          <Order>5</Order>
+          <Order>4</Order>
           <Description>Enable RDP</Description>
           <CommandLine>powershell -ExecutionPolicy Bypass -Command "Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0"</CommandLine>
         </SynchronousCommand>

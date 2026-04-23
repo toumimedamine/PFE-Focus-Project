@@ -29,9 +29,11 @@ data "vsphere_datastore" "ds" {
 ############################
 
 data "vsphere_virtual_machine" "template" {
-  name          = "Ubuntu2204-Template"
+  name          = "ubuntu-2204-desktop-template"
   datacenter_id = data.vsphere_datacenter.dtx1.id
 }
+
+
 
 ############################
 # VDS
