@@ -1,0 +1,7 @@
+*.iso
+*.squashfs
+*.deb
+iso-work/
+*.vmdk
+*.ova
+*.box
