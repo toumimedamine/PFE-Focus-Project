@@ -7,6 +7,19 @@ packer {
   }
 }
 
+# ================= LOCALS DEPUIS VAULT =================
+locals {
+  vcenter_server   = vault("kv-v2/data/packer/ubuntu-24.04", "vcenter_server")
+  vcenter_user     = vault("kv-v2/data/packer/ubuntu-24.04", "vcenter_user")
+  vcenter_password = vault("kv-v2/data/packer/ubuntu-24.04", "vcenter_password")
+  ssh_password     = vault("kv-v2/data/packer/ubuntu-24.04", "ssh_password")
+  iso_path         = vault("kv-v2/data/packer/ubuntu-24.04", "iso_path")
+  datacenter       = vault("kv-v2/data/packer/ubuntu-24.04", "datacenter")
+  cluster          = vault("kv-v2/data/packer/ubuntu-24.04", "cluster")
+  datastore        = vault("kv-v2/data/packer/ubuntu-24.04", "datastore")
+  network          = vault("kv-v2/data/packer/ubuntu-24.04", "network")
+}
+
 variable "vcenter_server" {
   type    = string
   default = ""
@@ -55,14 +68,14 @@ variable "ssh_password" {
 }
 
 source "vsphere-iso" "ubuntu-desktop" {
-  vcenter_server      = var.vcenter_server
-  username            = var.vcenter_user
-  password            = var.vcenter_password
+  vcenter_server      = local.vcenter_server
+  username            = local.vcenter_user
+  password            = local.vcenter_password
   insecure_connection = true
 
-  datacenter = var.datacenter
-  cluster    = var.cluster
-  datastore  = var.datastore
+  datacenter = local.datacenter
+  cluster    = local.cluster
+  datastore  = local.datastore
 
   vm_name              = "ubuntu-2204-desktop-template"
   guest_os_type        = "ubuntu64Guest"
@@ -78,11 +91,11 @@ source "vsphere-iso" "ubuntu-desktop" {
   }
 
   network_adapters {
-    network      = var.network
+    network      = local.network
     network_card = "vmxnet3"
   }
 
-  iso_paths = [var.iso_path]
+  iso_paths = [local.iso_path]
 
   cd_content = {
     "/meta-data" = file("./http/meta-data")
@@ -92,7 +105,7 @@ source "vsphere-iso" "ubuntu-desktop" {
 
   communicator           = "ssh"
   ssh_username           = "ubuntu"
-  ssh_password           = var.ssh_password
+  ssh_password           = local.ssh_password
   ssh_timeout            = "90m"
   ssh_handshake_attempts = 100000
   ip_wait_timeout        = "60m"
@@ -107,7 +120,7 @@ source "vsphere-iso" "ubuntu-desktop" {
     "yes<enter>"
   ]
 
-  shutdown_command = "echo '${var.ssh_password}' | sudo -S shutdown -P now"
+  shutdown_command = "echo '${local.ssh_password}' | sudo -S shutdown -P now"
   shutdown_timeout = "30m"
 }
 
@@ -115,7 +128,7 @@ build {
   sources = ["source.vsphere-iso.ubuntu-desktop"]
 
   provisioner "shell" {
-    execute_command = "echo '${var.ssh_password}' | sudo -S -E bash '{{.Path}}'"
+    execute_command = "echo '${local.ssh_password}' | sudo -S -E bash '{{.Path}}'"
     inline = [
       "apt-get update -y",
       "apt-get install -y open-vm-tools-desktop openssh-server",
@@ -125,4 +138,15 @@ build {
     ]
   }
 }
+
+
+
+
+
+
+
+
+
+
+
 
