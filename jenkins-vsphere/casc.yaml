@@ -1,0 +1,29 @@
+jenkins:
+  systemMessage: "Jenkins - Pipeline PFE DevOps"
+  numExecutors: 4
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "medaminetoumi"
+          password: "Admin123"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "VAULT_ADDR"
+            value: "http://127.0.0.1:8200"
+          - key: "VAULT_TOKEN"
+            value: "root"
+          - key: "GOVC_URL"
+            value: "https://vc-vstack-017-lab.virtualstack.tn"
+          - key: "GOVC_INSECURE"
+            value: "true"
+
+unclassified:
+  location:
+    url: "http://10.1.10.3:8080"
+    adminAddress: "hamatoumi@outlook.com"

@@ -1,0 +1,105 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  parameters {
+    booleanParam(
+      name: 'RUN_TERRAFORM_APPLY',
+      defaultValue: false,
+      description: 'Apply Terraform changes automatically when true.'
+    )
+  }
+
+  environment {
+    TF_IN_AUTOMATION = 'true'
+    TF_INPUT = 'false'
+    PACKER_LOG = '0'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Terraform Validate + Plan') {
+      steps {
+        dir('terraform-vsphere') {
+          sh '''
+            set -euo pipefail
+            command -v terraform >/dev/null 2>&1 || { echo "terraform missing"; exit 1; }
+
+            terraform fmt -check -recursive
+            terraform init -backend=false -input=false
+            terraform validate
+
+            if [ -f "terraform.tfvars" ]; then
+              terraform plan -input=false -no-color -out=tfplan -var-file=terraform.tfvars
+            else
+              terraform plan -input=false -no-color -out=tfplan
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Packer Validate (Vault)') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'vault-addr', variable: 'VAULT_ADDR'),
+          string(credentialsId: 'vault-token', variable: 'VAULT_TOKEN')
+        ]) {
+          dir('packer-vsphere') {
+            sh '''
+              set -euo pipefail
+              command -v packer >/dev/null 2>&1 || { echo "packer missing"; exit 1; }
+
+              [ -n "${VAULT_ADDR:-}" ] || { echo "VAULT_ADDR missing"; exit 1; }
+              [ -n "${VAULT_TOKEN:-}" ] || { echo "VAULT_TOKEN missing"; exit 1; }
+
+              packer fmt -check -recursive .
+
+              while IFS= read -r file; do
+                folder="$(dirname "$file")"
+                ( cd "$folder" && packer init . && packer validate . )
+              done < <(find . -name "*.pkr.hcl")
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Ansible Syntax Check') {
+      steps {
+        dir('ansible-vsphere') {
+          sh '''
+            set -euo pipefail
+            command -v ansible-playbook >/dev/null 2>&1 || { echo "ansible missing"; exit 1; }
+            ansible-playbook -i inventory.ini playbook.yml --syntax-check
+          '''
+        }
+      }
+    }
+
+    stage('Terraform Apply') {
+      when { expression { return params.RUN_TERRAFORM_APPLY } }
+      steps {
+        dir('terraform-vsphere') {
+          sh '''
+            set -euo pipefail
+            terraform apply -input=false -auto-approve tfplan
+          '''
+        }
+      }
+    }
+  }
+}
+
+
+
